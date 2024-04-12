@@ -1,27 +1,15 @@
 type Player = 1 | 2 | undefined;
 
-export type Nexo = {
-  id: string;
-  x: number;
-  y: number;
-  player?: Player;
-};
-
-type Line = {
-  nodes: [Nexo, Nexo, Nexo];
-  id: string;
-};
-
 export type Game = {
-  lines: Linea[];
+  lines: Line[];
 };
 
 class Board {
   private game: Game;
-  private player: Player = 1;
-  private currentNode?: Nexo;
+  public player: Player = 1;
+  private currentNode?: Node;
   private numberOfBalls = 0;
-  private nodes = new Map<string, Nexo & { neighbors: Nexo[] }>();
+  private nodes = new Map<string, Node & { neighbors: Node[] }>();
 
   constructor(game: Game) {
     this.game = game;
@@ -31,7 +19,7 @@ class Board {
     console.log("Iniciando juego");
   }
 
-  play(from: Nexo) {
+  play(from: Node) {
     if (!this.isNexoAvailable(from)) {
       return;
     }
@@ -62,7 +50,7 @@ class Board {
     }
   }
 
-  isNexoAvailable(nexo: Nexo) {
+  isNexoAvailable(nexo: Node) {
     for (const line of this.game.lines) {
       for (const node of line.nodes) {
         if (node.id === nexo.id) {
@@ -72,8 +60,8 @@ class Board {
     }
   }
 
-  getNeighbours(nexo: Nexo) {
-    const neighbours: Nexo[] = [];
+  getNeighbours(nexo: Node) {
+    const neighbours: Node[] = [];
     for (const line of this.game.lines) {
       if (line.nodes[0] === nexo) {
         neighbours.push(line.nodes[1]);
@@ -93,6 +81,7 @@ class Board {
     for (const line of this.game.lines) {
       const playerOfLine = line.nodes[0].player;
       if (!playerOfLine) continue;
+      console.log(line.nodes.map((node) => node.player));
       if (line.nodes.every((node) => node.player === playerOfLine)) {
         return `player ${playerOfLine} wins`;
       }
@@ -104,11 +93,12 @@ class Board {
     return {
       game: this.game,
       status: this.checkStatus(),
+      player: this.player,
     };
   }
 }
 
-class Nodo {
+export class Node {
   constructor(
     public id: string,
     public x: number,
@@ -134,8 +124,8 @@ class Nodo {
   }
 }
 
-class Linea {
-  constructor(public id: string, public nodes: [Nodo, Nodo, Nodo]) {
+class Line {
+  constructor(public id: string, public nodes: [Node, Node, Node]) {
     this.id = id;
     this.nodes = nodes;
   }
@@ -144,26 +134,44 @@ class Linea {
     return this.nodes.every((node) => node.getPlayer() !== undefined);
   };
 }
+// initial position to show full circle
+const i = 10;
+// max position
+const m = 90;
 
-const N1 = new Nodo("n1", 10, 10);
-const N2 = new Nodo("n2", 60, 10);
-const N3 = new Nodo("n3", 110, 10);
-const N4 = new Nodo("n4", 60, 110);
-const N5 = new Nodo("n5", 30, 50);
-const N6 = new Nodo("n6", 90, 50);
-const N7 = new Nodo("n7", 30, 90);
-const N8 = new Nodo("n8", 90, 90);
-const N9 = new Nodo("n9", 10, 90);
+function calculatePoint(p1: Node, p2: Node) {
+  const φ = 1.61803398875;
+  const x = p1.x + (p2.x - p1.x) / (1 + φ);
+  const y = p1.y + (p2.y - p1.y) / (1 + φ);
 
-const L1 = new Linea("l1", [N1, N2, N3]);
-const L2 = new Linea("l2", [N1, N4, N5]);
-const L3 = new Linea("l3", [N4, N6, N3]);
-const L4 = new Linea("l4", [N5, N7, N8]);
-const L5 = new Linea("l5", [N6, N8, N9]);
-const L6 = new Linea("l6", [N7, N9, N2]);
+  return new Node(`${p1.id}_${p2.id}`, x, y);
+}
+
+// Triangle vertices
+const V1 = new Node("v1", i, i);
+const V2 = new Node("v2", m + i, i);
+const V3 = new Node("v3", m / 2 + i, m + i);
+// Triangle midpoints
+const V1_V2 = calculatePoint(V1, V2);
+const V2_V3 = calculatePoint(V2, V3);
+const V1_V3 = calculatePoint(V3, V1);
+// Inner triangle vertices
+const X1 = calculatePoint(V1_V2, V3);
+const X2 = calculatePoint(V1_V3, V2);
+const X3 = calculatePoint(V2_V3, V1);
+
+const L1 = new Line("l1", [V1, V1_V2, V2]);
+const L2 = new Line("l2", [V1, V3, V1_V3]);
+const L3 = new Line("l3", [V3, V2_V3, V2]);
+const L4 = new Line("l4", [V1_V2, X1, V3]);
+const L5 = new Line("l5", [V1_V3, X2, V2]);
+const L6 = new Line("l6", [V2_V3, X3, V1]);
+const L7 = new Line("l7", [V1_V2, X2, X3]);
+const L8 = new Line("l8", [V1_V3, X1, X3]);
+const L9 = new Line("l9", [V2_V3, X1, X2]);
 
 export const initialGame: Game = {
-  lines: [L1, L2, L3, L4, L5, L6],
+  lines: [L1, L2, L3, L4, L5, L6, L7, L8, L9],
 };
 
 export const board = new Board(initialGame);
