@@ -4,12 +4,21 @@ export type Game = {
   lines: Line[];
 };
 
+const MAX_BALLS = 6;
+type MovePhase = "placement" | "movement";
+type LastMove = {
+  type: "place" | "move";
+  toId: string;
+  fromId?: string;
+};
+
 class Board {
   private game: Game;
   public player: Player = 1;
-  private currentNode?: Node;
+  private selectedNode?: Node;
   private numberOfBalls = 0;
   private nodes = new Map<string, Node & { neighbors: Node[] }>();
+  private lastMove?: LastMove;
 
   constructor(game: Game) {
     this.game = game;
@@ -20,24 +29,69 @@ class Board {
   }
 
   play(from: Node) {
-    if (!this.isNexoAvailable(from)) {
+    if (this.checkStatus().includes("wins")) {
       return;
     }
-    if (this.numberOfBalls < 6) {
+
+    const isPlacementPhase = this.numberOfBalls < MAX_BALLS;
+
+    if (isPlacementPhase) {
+      if (!this.isNexoAvailable(from)) {
+        return;
+      }
       from.player = this.player;
       this.numberOfBalls++;
-    } else if (this.currentNode) {
-      this.currentNode.player = undefined;
-      from.player = this.player;
-    } else {
-      this.currentNode = from;
+      this.lastMove = {
+        type: "place",
+        toId: from.id,
+      };
+      this.player = this.player === 1 ? 2 : 1;
+      this.selectedNode = undefined;
+      return this.getGame();
     }
+
+    if (!this.selectedNode) {
+      if (from.player === this.player) {
+        this.selectedNode = from;
+      }
+      return this.getGame();
+    }
+
+    if (from === this.selectedNode) {
+      this.selectedNode = undefined;
+      return this.getGame();
+    }
+
+    if (!this.isNexoAvailable(from)) {
+      if (from.player === this.player) {
+        this.selectedNode = from;
+      }
+      return this.getGame();
+    }
+
+    const fromId = this.selectedNode.id;
+    this.selectedNode.player = undefined;
+    from.player = this.player;
+    this.selectedNode = undefined;
+    this.lastMove = {
+      type: "move",
+      fromId,
+      toId: from.id,
+    };
     this.player = this.player === 1 ? 2 : 1;
     return this.getGame();
   }
 
   clear() {
-    this.currentNode = undefined;
+    this.selectedNode = undefined;
+    this.player = 1;
+    this.numberOfBalls = 0;
+    this.lastMove = undefined;
+    for (const line of this.game.lines) {
+      for (const node of line.nodes) {
+        node.player = undefined;
+      }
+    }
   }
 
   getNexoById(id: string) {
@@ -51,13 +105,7 @@ class Board {
   }
 
   isNexoAvailable(nexo: Node) {
-    for (const line of this.game.lines) {
-      for (const node of line.nodes) {
-        if (node.id === nexo.id) {
-          return node.player === undefined;
-        }
-      }
-    }
+    return nexo.player === undefined;
   }
 
   getNeighbours(nexo: Node) {
@@ -81,7 +129,6 @@ class Board {
     for (const line of this.game.lines) {
       const playerOfLine = line.nodes[0].player;
       if (!playerOfLine) continue;
-      console.log(line.nodes.map((node) => node.player));
       if (line.nodes.every((node) => node.player === playerOfLine)) {
         return `player ${playerOfLine} wins`;
       }
@@ -90,10 +137,15 @@ class Board {
   }
 
   getGame() {
+    const phase: MovePhase =
+      this.numberOfBalls < MAX_BALLS ? "placement" : "movement";
     return {
       game: this.game,
       status: this.checkStatus(),
       player: this.player,
+      selectedNode: this.selectedNode,
+      phase,
+      lastMove: this.lastMove,
     };
   }
 }
