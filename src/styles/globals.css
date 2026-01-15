@@ -189,6 +189,41 @@ a {
   flex-wrap: wrap;
 }
 
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.segmented-button {
+  border: 1px solid rgba(61, 54, 47, 0.2);
+  background: transparent;
+  color: var(--ink);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.segmented-button[data-active="true"] {
+  background: rgba(47, 92, 115, 0.12);
+  border-color: rgba(47, 92, 115, 0.4);
+  box-shadow: 0 10px 22px -18px rgba(31, 26, 20, 0.9);
+}
+
+.segmented-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(61, 54, 47, 0.35);
+}
+
+.segmented-button:focus-visible {
+  outline: 2px solid rgba(47, 92, 115, 0.6);
+  outline-offset: 3px;
+}
+
 .rules-button {
   border: 1px solid rgba(61, 54, 47, 0.25);
   padding: 10px 16px;

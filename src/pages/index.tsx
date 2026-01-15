@@ -2,8 +2,23 @@
 
 import type { NextPage } from "next";
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getBestMove } from "../lib/ai";
+import type { AiMove } from "../lib/ai";
 import { Node, board } from "../lib/tree";
+
+const AI_PLAYER = 2;
+const AI_DELAYS = {
+  place: 450,
+  moveSelect: 320,
+};
+const DIFFICULTY_DEPTH = {
+  easy: { placement: 3, movement: 3 },
+  medium: { placement: 5, movement: 4 },
+  hard: { placement: 7, movement: 6 },
+} as const;
+type Difficulty = keyof typeof DIFFICULTY_DEPTH;
+type AiStep = "idle" | "placing" | "selecting" | "moving";
 
 const getWinEndpoints = (nodes: [Node, Node, Node]) => {
   const [first, second, third] = nodes;
@@ -40,6 +55,11 @@ const Home: NextPage = () => {
     setGame,
   ] = useState(() => board.getGame());
   const [isRulesOpen, setIsRulesOpen] = useState(false);
+  const [mode, setMode] = useState<"ai" | "pvp">("ai");
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
+  const [aiStep, setAiStep] = useState<AiStep>("idle");
+  const aiMoveRef = useRef<AiMove | null>(null);
+  const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const statusLabel = status
     .split(" ")
@@ -54,6 +74,11 @@ const Home: NextPage = () => {
   const lastMoveFromId =
     lastMove?.type === "move" ? lastMove.fromId : undefined;
   const moveTargets = new Set(availableMoves?.map((move) => move.id));
+  const aiDepth = useMemo(() => {
+    return phase === "placement"
+      ? DIFFICULTY_DEPTH[difficulty].placement
+      : DIFFICULTY_DEPTH[difficulty].movement;
+  }, [difficulty, phase]);
 
   const onPlay = (node: Node) => {
     const possibleGame = board.play(node);
@@ -66,6 +91,11 @@ const Home: NextPage = () => {
     board.clear();
     setGame(board.getGame());
   };
+
+  useEffect(() => {
+    board.clear();
+    setGame(board.getGame());
+  }, [mode]);
 
   useEffect(() => {
     if (!isRulesOpen) {
@@ -84,6 +114,114 @@ const Home: NextPage = () => {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [isRulesOpen]);
+
+  useEffect(() => {
+    if (isRulesOpen) {
+      return;
+    }
+    if (status.includes("wins")) {
+      return;
+    }
+    if (mode !== "ai" || player !== AI_PLAYER || aiStep !== "idle") {
+      return;
+    }
+    const move = getBestMove(game, AI_PLAYER, { maxDepth: aiDepth });
+    if (!move) {
+      return;
+    }
+    aiMoveRef.current = move;
+    setAiStep(move.type === "place" ? "placing" : "selecting");
+  }, [aiDepth, aiStep, game, isRulesOpen, mode, player, status]);
+
+  useEffect(() => {
+    if (mode !== "ai" || isRulesOpen || status.includes("wins")) {
+      if (aiStep !== "idle") {
+        setAiStep("idle");
+      }
+      aiMoveRef.current = null;
+    }
+  }, [aiStep, isRulesOpen, mode, status]);
+
+  useEffect(() => {
+    if (aiStep !== "placing") {
+      return;
+    }
+    const move = aiMoveRef.current;
+    if (!move || move.type !== "place") {
+      setAiStep("idle");
+      return;
+    }
+    aiTimeoutRef.current = setTimeout(() => {
+      const node = board.getNexoById(move.toId);
+      if (node) {
+        const possibleGame = board.play(node);
+        if (possibleGame) {
+          setGame(possibleGame);
+        }
+      }
+      aiMoveRef.current = null;
+      setAiStep("idle");
+    }, AI_DELAYS.place);
+    return () => {
+      if (aiTimeoutRef.current) {
+        clearTimeout(aiTimeoutRef.current);
+        aiTimeoutRef.current = null;
+      }
+    };
+  }, [aiStep]);
+
+  useEffect(() => {
+    if (aiStep !== "selecting") {
+      return;
+    }
+    const move = aiMoveRef.current;
+    if (!move || move.type !== "move") {
+      setAiStep("idle");
+      return;
+    }
+    const fromNode = board.getNexoById(move.fromId);
+    if (!fromNode) {
+      aiMoveRef.current = null;
+      setAiStep("idle");
+      return;
+    }
+    const possibleGame = board.play(fromNode);
+    if (possibleGame) {
+      setGame(possibleGame);
+    }
+    aiTimeoutRef.current = setTimeout(() => {
+      setAiStep("moving");
+    }, AI_DELAYS.moveSelect);
+    return () => {
+      if (aiTimeoutRef.current) {
+        clearTimeout(aiTimeoutRef.current);
+        aiTimeoutRef.current = null;
+      }
+    };
+  }, [aiStep]);
+
+  useEffect(() => {
+    if (aiStep !== "moving") {
+      return;
+    }
+    const move = aiMoveRef.current;
+    if (!move || move.type !== "move") {
+      setAiStep("idle");
+      return;
+    }
+    const toNode = board.getNexoById(move.toId);
+    if (!toNode) {
+      aiMoveRef.current = null;
+      setAiStep("idle");
+      return;
+    }
+    const possibleGame = board.play(toNode);
+    if (possibleGame) {
+      setGame(possibleGame);
+    }
+    aiMoveRef.current = null;
+    setAiStep("idle");
+  }, [aiStep]);
 
   return (
     <div className="page">
@@ -119,6 +257,58 @@ const Home: NextPage = () => {
                   <span className="turn-dot" data-player={player} />
                   Player {player}
                 </span>
+              </div>
+            ) : null}
+            <div className="status-row">
+              <span className="status-label">Mode</span>
+              <div className="segmented">
+                <button
+                  className="segmented-button"
+                  type="button"
+                  data-active={mode === "pvp"}
+                  onClick={() => setMode("pvp")}
+                >
+                  Player vs Player
+                </button>
+                <button
+                  className="segmented-button"
+                  type="button"
+                  data-active={mode === "ai"}
+                  onClick={() => setMode("ai")}
+                >
+                  Vs AI (Player 2)
+                </button>
+              </div>
+            </div>
+            {mode === "ai" ? (
+              <div className="status-row">
+                <span className="status-label">Difficulty</span>
+                <div className="segmented">
+                  <button
+                    className="segmented-button"
+                    type="button"
+                    data-active={difficulty === "easy"}
+                    onClick={() => setDifficulty("easy")}
+                  >
+                    Easy
+                  </button>
+                  <button
+                    className="segmented-button"
+                    type="button"
+                    data-active={difficulty === "medium"}
+                    onClick={() => setDifficulty("medium")}
+                  >
+                    Medium
+                  </button>
+                  <button
+                    className="segmented-button"
+                    type="button"
+                    data-active={difficulty === "hard"}
+                    onClick={() => setDifficulty("hard")}
+                  >
+                    Hard
+                  </button>
+                </div>
               </div>
             ) : null}
             <div className="status-actions">
