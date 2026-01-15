@@ -126,26 +126,42 @@ class Board {
   }
 
   checkStatus(): "player 1 wins" | "player 2 wins" | "playing" | "setup" {
-    for (const line of this.game.lines) {
-      const playerOfLine = line.nodes[0].player;
-      if (!playerOfLine) continue;
-      if (line.nodes.every((node) => node.player === playerOfLine)) {
+    const winningLine = this.getWinningLine();
+    if (winningLine) {
+      const playerOfLine = winningLine.nodes[0].player;
+      if (playerOfLine) {
         return `player ${playerOfLine} wins`;
       }
     }
     return "playing";
   }
 
+  private getWinningLine() {
+    for (const line of this.game.lines) {
+      const playerOfLine = line.nodes[0].player;
+      if (!playerOfLine) continue;
+      if (line.nodes.every((node) => node.player === playerOfLine)) {
+        return line;
+      }
+    }
+  }
+
   getGame() {
     const phase: MovePhase =
       this.numberOfBalls < MAX_BALLS ? "placement" : "movement";
+    const winningLine = this.getWinningLine();
+    const status =
+      winningLine && winningLine.nodes[0].player
+        ? `player ${winningLine.nodes[0].player} wins`
+        : "playing";
     return {
       game: this.game,
-      status: this.checkStatus(),
+      status,
       player: this.player,
       selectedNode: this.selectedNode,
       phase,
       lastMove: this.lastMove,
+      winningLineId: winningLine?.id,
     };
   }
 }
