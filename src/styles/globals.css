@@ -388,16 +388,22 @@ a {
 }
 
 .board[data-phase="placement"] .node[data-player="0"],
-.board[data-phase="movement"][data-selection="true"] .node[data-player="0"] {
+.board[data-phase="movement"] .node[data-move-target="true"] {
   cursor: pointer;
 }
 
 .board[data-phase="placement"] .node[data-player="0"]:hover,
-.board[data-phase="movement"][data-selection="true"]
-  .node[data-player="0"]:hover {
+.board[data-phase="movement"] .node[data-move-target="true"]:hover {
   fill: var(--node-hover);
   transform: scale(1.08);
   stroke: var(--accent-strong);
+}
+
+.node[data-move-target="true"] {
+  fill: #f8e7cf;
+  stroke: var(--accent);
+  stroke-width: 1.1;
+  filter: drop-shadow(0 0 6px rgba(196, 122, 56, 0.4));
 }
 
 .node[data-player="1"] {

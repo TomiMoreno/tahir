@@ -4,12 +4,15 @@ export type Game = {
   lines: Line[];
 };
 
-const MAX_BALLS = 6;
+const MAX_BALLS = 2;
 type MovePhase = "placement" | "movement";
 type LastMove = {
   type: "place" | "move";
   toId: string;
   fromId?: string;
+};
+type AvailableMove = {
+  id: string;
 };
 
 class Board {
@@ -66,6 +69,11 @@ class Board {
       if (from.player === this.player) {
         this.selectedNode = from;
       }
+      return this.getGame();
+    }
+
+    const neighbours = this.getNeighbours(this.selectedNode);
+    if (!neighbours.includes(from)) {
       return this.getGame();
     }
 
@@ -154,6 +162,8 @@ class Board {
       winningLine && winningLine.nodes[0].player
         ? `player ${winningLine.nodes[0].player} wins`
         : "playing";
+    const availableMoves: AvailableMove[] =
+      phase === "movement" && this.selectedNode ? this.getAvailableMoves() : [];
     return {
       game: this.game,
       status,
@@ -162,7 +172,22 @@ class Board {
       phase,
       lastMove: this.lastMove,
       winningLineId: winningLine?.id,
+      availableMoves,
     };
+  }
+
+  private getAvailableMoves(): AvailableMove[] {
+    if (!this.selectedNode) {
+      return [];
+    }
+    const neighbours = this.getNeighbours(this.selectedNode);
+    const uniqueMoves = new Map<string, AvailableMove>();
+    for (const node of neighbours) {
+      if (this.isNexoAvailable(node) && !uniqueMoves.has(node.id)) {
+        uniqueMoves.set(node.id, { id: node.id });
+      }
+    }
+    return Array.from(uniqueMoves.values());
   }
 }
 
@@ -229,14 +254,14 @@ const X2 = calculatePoint(V1_V3, V2);
 const X3 = calculatePoint(V2_V3, V1);
 
 const L1 = new Line("l1", [V1, V1_V2, V2]);
-const L2 = new Line("l2", [V1, V3, V1_V3]);
+const L2 = new Line("l2", [V1, V1_V3, V3]);
 const L3 = new Line("l3", [V3, V2_V3, V2]);
 const L4 = new Line("l4", [V1_V2, X1, V3]);
 const L5 = new Line("l5", [V1_V3, X2, V2]);
 const L6 = new Line("l6", [V2_V3, X3, V1]);
-const L7 = new Line("l7", [V1_V2, X2, X3]);
+const L7 = new Line("l7", [V1_V2, X3, X2]);
 const L8 = new Line("l8", [V1_V3, X1, X3]);
-const L9 = new Line("l9", [V2_V3, X1, X2]);
+const L9 = new Line("l9", [V2_V3, X2, X1]);
 
 export const initialGame: Game = {
   lines: [L1, L2, L3, L4, L5, L6, L7, L8, L9],

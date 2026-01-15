@@ -27,7 +27,16 @@ const getWinEndpoints = (nodes: [Node, Node, Node]) => {
 
 const Home: NextPage = () => {
   const [
-    { game, status, player, selectedNode, phase, lastMove, winningLineId },
+    {
+      game,
+      status,
+      player,
+      selectedNode,
+      phase,
+      lastMove,
+      winningLineId,
+      availableMoves,
+    },
     setGame,
   ] = useState(() => board.getGame());
   const [isRulesOpen, setIsRulesOpen] = useState(false);
@@ -44,6 +53,7 @@ const Home: NextPage = () => {
   const lastMoveToId = lastMove?.type === "move" ? lastMove.toId : undefined;
   const lastMoveFromId =
     lastMove?.type === "move" ? lastMove.fromId : undefined;
+  const moveTargets = new Set(availableMoves?.map((move) => move.id));
 
   const onPlay = (node: Node) => {
     const possibleGame = board.play(node);
@@ -187,6 +197,9 @@ const Home: NextPage = () => {
                       id={node.id}
                       data-player={node.player ?? 0}
                       data-selected={selectedNodeId === node.id}
+                      data-move-target={
+                        moveTargets.has(node.id) ? "true" : undefined
+                      }
                       data-move={
                         lastMoveToId === node.id
                           ? "to"
