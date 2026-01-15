@@ -4,7 +4,7 @@ export type Game = {
   lines: Line[];
 };
 
-const MAX_BALLS = 2;
+const MAX_BALLS = 6;
 type MovePhase = "placement" | "movement";
 type LastMove = {
   type: "place" | "move";
